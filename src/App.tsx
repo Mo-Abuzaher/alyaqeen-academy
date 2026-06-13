@@ -666,7 +666,7 @@ export default function App() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
           >
-            <span className="brand-text-desktop">Alyaqeen Academy</span>
+            <span className="brand-text-desktop">Alyaqeen <span className="brand-word-secondary">Academy</span></span>
             <img 
               src={logo1} 
               alt="Alyaqeen Academy logo" 

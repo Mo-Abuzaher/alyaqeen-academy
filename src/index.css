@@ -54,7 +54,6 @@
 
 /* Reset & Base */
 *, *::before, *::after {
-  box-style: border-box;
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -146,7 +145,7 @@ ul {
   padding: 0 1rem;
 }
 
-@media (min-width: 769px) {
+@media (min-width: 1025px) {
   .nav-container {
     padding-left: 1.75rem !important; /* Move Alyaqeen Academy brand name more to the extremely left margin */
     padding-right: 1.75rem !important; /* Align the Enroll button to the right margin */
@@ -167,7 +166,7 @@ ul {
   z-index: 1001;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .nav-actions-right {
     gap: 0.75rem;
   }
@@ -232,7 +231,7 @@ ul {
   transition: opacity 0.35s ease, transform 0.35s ease, visibility 0.35s ease;
 }
 
-@media (min-width: 769px) {
+@media (min-width: 1025px) {
   .nav-menu {
     position: absolute;
     left: 50%;
@@ -241,26 +240,35 @@ ul {
   }
 }
 
-/* Elegant and scaled sizes specifically for Tablet Landscape (Horizontal) previews */
-@media (min-width: 769px) and (max-width: 1024px) {
+/* Precise layout scaling for Tablet Landscape (Horizontal) and Narrow Desktop views to prevent overlaps */
+@media (min-width: 1025px) and (max-width: 1300px) {
+  .brand-word-secondary {
+    display: inline !important;
+  }
+  
+  .brand-logo-left {
+    font-size: 1.15rem !important;
+    white-space: nowrap !important;
+  }
+
+  .logo-center-img {
+    height: 85px !important;
+  }
+  
   .nav-menu {
-    gap: 1.5rem !important;
-    left: 54% !important; /* Move the entire navbar a bit to the right to reside perfectly centered in available space */
+    gap: 1.15rem !important;
+    left: 50% !important;
     transform: translateX(-50%) !important;
   }
   
   .nav-menu a {
-    font-size: 0.95rem !important;
-    white-space: nowrap !important; /* Keep the phrase on a single line with no wrapping */
+    font-size: 0.92rem !important;
+    white-space: nowrap !important;
   }
 
-  .logo-center-img {
-    height: 130px !important; /* Elegant beautifully-proportioned size on tablet landscape, perfect in center */
-  }
-
-  .brand-logo-left {
-    font-size: 1.25rem !important;
-    white-space: nowrap !important; /* Prevent brand text from folding */
+  .nav-container {
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
   }
   
   .nav-actions-right {
@@ -325,7 +333,7 @@ ul {
 }
 
 /* Mobile-only and Responsive display adjustments */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .nav-logo-center-item {
     display: none !important;
   }
@@ -348,7 +356,7 @@ ul {
   }
 }
 
-@media (min-width: 769px) {
+@media (min-width: 1025px) {
   .nav-enroll-mobile-item {
     display: none !important;
   }
@@ -1255,7 +1263,7 @@ html.scrolled-page .compact-toggle {
    Responsive - Mobile
    ============================================ */
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   :root {
     --section-padding: 3rem;
     --header-height: 116px; /* Increased from 104px to perfectly fit our gorgeous larger logo */
