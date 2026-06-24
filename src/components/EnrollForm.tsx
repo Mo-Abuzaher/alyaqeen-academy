@@ -40,15 +40,23 @@ const COUNTRIES = [
   { code: "+254", length: 9, name: "Kenya", flag: "🇰🇪" }
 ];
 
+const ENROLL_LIMITS = {
+  name: 120,
+  email: 254,
+  message: 1200,
+};
+
 interface EnrollFormProps {
   formspreeId?: string;
   className?: string;
 }
 
 export default function EnrollForm({ 
-  formspreeId = "mdayeawn",
+  formspreeId: formspreeIdOverride,
   className = "" 
 }: EnrollFormProps) {
+  const formspreeId = formspreeIdOverride || import.meta.env.VITE_FORMSPREE_ID?.trim() || "";
+
   // Form State
   const [enrollName, setEnrollName] = useState("");
   const [enrollEmail, setEnrollEmail] = useState("");
@@ -90,19 +98,25 @@ export default function EnrollForm({
       return;
     }
 
+    if (!formspreeId) {
+      setFormStatus("error");
+      setErrorMessage("Enrollment form is not configured yet. Please contact Alyaqeen Academy directly.");
+      return;
+    }
+
     setFormStatus("submitting");
     setErrorMessage("");
 
     try {
       const formatData = new FormData();
-      formatData.append("name", enrollName);
-      formatData.append("email", enrollEmail);
+      formatData.append("name", enrollName.trim());
+      formatData.append("email", enrollEmail.trim());
       if (enrollPhone) {
         formatData.append("phone", `${enrollCountry} ${enrollPhone}`);
       }
       formatData.append("course", enrollCourse);
       formatData.append("student", enrollStudent);
-      formatData.append("message", enrollMessage);
+      formatData.append("message", enrollMessage.trim());
 
       const response = await fetch(`https://formspree.io/f/${formspreeId}`, {
         method: "POST",
@@ -180,6 +194,7 @@ export default function EnrollForm({
                   id="name" 
                   name="name" 
                   required 
+                  maxLength={ENROLL_LIMITS.name}
                   disabled={formStatus === "submitting"}
                   placeholder="Your name"
                   value={enrollName}
@@ -194,6 +209,7 @@ export default function EnrollForm({
                   id="email" 
                   name="email" 
                   required 
+                  maxLength={ENROLL_LIMITS.email}
                   disabled={formStatus === "submitting"}
                   placeholder="your@email.com"
                   value={enrollEmail}
@@ -291,6 +307,7 @@ export default function EnrollForm({
                 name="message" 
                 rows={4} 
                 required 
+                maxLength={ENROLL_LIMITS.message}
                 disabled={formStatus === "submitting"}
                 placeholder="Any questions, preferred schedule, or special requests..."
                 value={enrollMessage}

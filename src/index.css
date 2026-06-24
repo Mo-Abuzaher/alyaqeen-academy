@@ -400,6 +400,7 @@ ul {
   height: 52px;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
   gap: 5px;
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(26, 127, 107, 0.18);
@@ -413,10 +414,11 @@ ul {
 }
 
 .compact-toggle span {
-  width: 3px;
-  height: 18px;
+  width: 22px;
+  height: 2px;
   background: var(--color-primary-dark);
   border-radius: 999px;
+  transition: transform 0.28s ease, opacity 0.2s ease, width 0.2s ease;
 }
 
 .compact-toggle:hover {
@@ -425,6 +427,19 @@ ul {
 
 .compact-toggle[aria-expanded="true"] {
   background: rgba(26, 127, 107, 0.1);
+}
+
+.compact-toggle.active span:nth-child(1) {
+  transform: rotate(45deg) translate(5px, 5px);
+}
+
+.compact-toggle.active span:nth-child(2) {
+  opacity: 0;
+  width: 0;
+}
+
+.compact-toggle.active span:nth-child(3) {
+  transform: rotate(-45deg) translate(5px, -5px);
 }
 
 .header.scrolled .logo,
@@ -1521,5 +1536,4 @@ html.scrolled-page .compact-toggle {
 #root {
   opacity: 1 !important;
 }
-
 

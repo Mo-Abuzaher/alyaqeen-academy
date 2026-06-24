@@ -107,12 +107,38 @@ const DEFAULT_TESTIMONIALS = [
   }
 ];
 
+const REVIEW_LIMITS = {
+  id: 120,
+  name: 80,
+  title: 80,
+  quote: 1200,
+};
+
+const boundedString = (value: unknown, maxLength: number) => {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+};
+
+const clampStars = (value: unknown) => {
+  const stars = Number(value);
+  if (!Number.isFinite(stars)) return 5;
+  return Math.min(5, Math.max(1, Math.round(stars)));
+};
+
+const normalizeReview = (review: any, fallbackId: string) => ({
+  id: boundedString(review?.id, REVIEW_LIMITS.id) || fallbackId,
+  stars: clampStars(review?.stars),
+  quote: boundedString(review?.quote, REVIEW_LIMITS.quote),
+  name: boundedString(review?.name, REVIEW_LIMITS.name) || "Anonymous",
+  title: boundedString(review?.title, REVIEW_LIMITS.title),
+});
+
 export default function App() {
   const [currentPage, setCurrentPage] = useState<"home" | "reviews">("home");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [compactMenuOpen, setCompactMenuOpen] = useState(false);
   const [compactMenuHovered, setCompactMenuHovered] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const isCompactMenuActive = compactMenuOpen || compactMenuHovered;
   
   const hoverTimeoutRef = useRef<any>(null);
 
@@ -170,7 +196,7 @@ export default function App() {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
           // Filter out duplicate IDs or any leftover "Najla" overrides to let the static declaration govern
-          customReviews = parsed.filter(
+          customReviews = parsed.map((r: any, idx: number) => normalizeReview(r, `local_${idx}`)).filter(
             (r: any) => 
               !DEFAULT_TESTIMONIALS.some((d) => d.id === r.id) && 
               r.id !== "najla-siddiqui" &&
@@ -200,13 +226,9 @@ export default function App() {
         }
 
         if (data) {
-          const fetched: any[] = data.map((item: any) => ({
-            id: item.id || `supabase_${item.created_at || Date.now()}`,
-            stars: item.stars || 5,
-            quote: item.quote || "",
-            name: item.name || "Anonymous",
-            title: item.title || ""
-          }));
+          const fetched: any[] = data.map((item: any) =>
+            normalizeReview(item, `supabase_${item.created_at || Date.now()}`)
+          );
 
           setTestimonials((prev) => {
             // Keep transient local reviews created in this current browser session in the last 45 seconds.
@@ -246,11 +268,30 @@ export default function App() {
   };
 
   // Admin Mode state (hidden controls for you to manage submissions easily)
-  const [isAdmin, setIsAdmin] = useState(() => {
-    return localStorage.getItem("alyaqeen_admin_authorized") === "true";
-  });
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAdmin(!!session);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAdmin(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
-  const [adminPasscode, setAdminPasscode] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [adminLoading, setAdminLoading] = useState(false);
   const [reviewIdToDelete, setReviewIdToDelete] = useState<string | null>(null);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
 
@@ -370,21 +411,36 @@ export default function App() {
   const patternOpacity = useTransform(scrollYProgress, [0, 1], [0.5, 0.1]);
 
   const triggerAdminPrompt = () => {
-    setAdminPasscode("");
+    setAdminEmail("");
+    setAdminPassword("");
     setIsAdminModalOpen(true);
   };
 
-  const handleAdminVerify = (e: React.FormEvent) => {
+  const handleAdminVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = adminPasscode.trim().toLowerCase();
-    if (trimmed === "yaqeen2026" || trimmed === "admin26") {
-      setIsAdmin(true);
-      localStorage.setItem("alyaqeen_admin_authorized", "true");
+    if (!isSupabaseConfigured || !supabase) {
+      showToast("Supabase is not configured. Backend unavailable.", "error");
+      return;
+    }
+    setAdminLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: adminEmail.trim(),
+      password: adminPassword.trim(),
+    });
+    setAdminLoading(false);
+
+    if (error) {
+      showToast(
+        error.message === "Invalid login credentials"
+          ? "Login failed. Use a Supabase Auth user email and password, not your Supabase dashboard login."
+          : error.message,
+        "error"
+      );
+    } else {
       showToast("Admin mode activated. You can now delete reviews directly from the website.", "success");
       setIsAdminModalOpen(false);
-      setAdminPasscode("");
-    } else {
-      showToast("Incorrect passcode.", "error");
+      setAdminEmail("");
+      setAdminPassword("");
     }
   };
 
@@ -427,13 +483,13 @@ export default function App() {
 
     const newId = "review_" + Date.now();
     // Create mode
-    const newReview = {
+    const newReview = normalizeReview({
       id: newId,
       stars: newReviewRating,
       quote: newReviewQuote.trim(),
       name: newReviewName.trim(),
       title: newReviewTitle.trim()
-    };
+    }, newId);
 
     const updatedReviews = [newReview, ...testimonials];
     setTestimonials(updatedReviews);
@@ -805,9 +861,9 @@ export default function App() {
 
       {/* 2. Compact Side Scroll Navigation (triggered automatically when scrolled) */}
       <button 
-        className="compact-toggle" 
+        className={`compact-toggle ${isCompactMenuActive ? "active" : ""}`}
         onClick={() => {
-          if (compactMenuOpen || compactMenuHovered) {
+          if (isCompactMenuActive) {
             setCompactMenuOpen(false);
             setCompactMenuHovered(false);
           } else {
@@ -816,8 +872,8 @@ export default function App() {
         }}
         onMouseEnter={handleCompactMouseEnter}
         onMouseLeave={handleCompactMouseLeave}
-        aria-label="Open persistent navigation menu" 
-        aria-expanded={compactMenuOpen || compactMenuHovered}
+        aria-label={isCompactMenuActive ? "Close persistent navigation menu" : "Open persistent navigation menu"}
+        aria-expanded={isCompactMenuActive}
         id="persistent-compact-toggle"
       >
         <span></span>
@@ -827,7 +883,7 @@ export default function App() {
 
       {/* Compact Dropdown Menu Overlay */}
       <ul 
-        className={`compact-menu ${(compactMenuOpen || compactMenuHovered) ? "compact-open" : ""}`} 
+        className={`compact-menu ${isCompactMenuActive ? "compact-open" : ""}`}
         id="persistent-compact-menu"
         onMouseEnter={handleCompactMouseEnter}
         onMouseLeave={handleCompactMouseLeave}
@@ -1411,6 +1467,7 @@ export default function App() {
                 {testimonials.map((review: any, idx: number) => {
                   const delayClass = `delay-${(idx % 4) + 1}`;
                   const isDefault = DEFAULT_TESTIMONIALS.some((d) => d.id === review.id);
+                  const stars = clampStars(review.stars);
                   return (
                     <article 
                       key={review.id || idx} 
@@ -1420,7 +1477,7 @@ export default function App() {
                       <div>
                         <div className="flex items-center justify-between mb-4">
                           <p className="review-stars" aria-hidden="true">
-                            {"★".repeat(review.stars || 5)}{"☆".repeat(5 - (review.stars || 5))}
+                            {"★".repeat(stars)}{"☆".repeat(5 - stars)}
                           </p>
                           {isAdmin && !isDefault && (
                             <button
@@ -1614,6 +1671,7 @@ export default function App() {
                   type="text"
                   id="reviewer-name"
                   required
+                  maxLength={REVIEW_LIMITS.name}
                   value={newReviewName}
                   onChange={(e) => setNewReviewName(e.target.value)}
                   placeholder="e.g. Abdullah Ahmed or Jawad's Parent"
@@ -1628,6 +1686,7 @@ export default function App() {
                 <input
                   type="text"
                   id="reviewer-title"
+                  maxLength={REVIEW_LIMITS.title}
                   value={newReviewTitle}
                   onChange={(e) => setNewReviewTitle(e.target.value)}
                   placeholder="e.g. Quran Student, or Parent"
@@ -1669,6 +1728,7 @@ export default function App() {
                   id="reviewer-quote"
                   required
                   rows={4}
+                  maxLength={REVIEW_LIMITS.quote}
                   value={newReviewQuote}
                   onChange={(e) => setNewReviewQuote(e.target.value)}
                   placeholder="Write your beautiful experience here..."
@@ -1726,24 +1786,39 @@ export default function App() {
                 Alyaqeen Academy Admin
               </h3>
               <p className="text-white/80 text-xs mt-1">
-                Enter your administrative passcode to toggle moderation tools.
+                Enter your admin credentials to securely toggle moderation tools.
               </p>
             </div>
 
             {/* Verification Form */}
             <form onSubmit={handleAdminVerify} className="p-6 flex flex-col gap-4 bg-[#FBFDFB]">
               <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#064E3B]/85 mb-1.5" htmlFor="admin-email">
+                  Admin Email
+                </label>
+                <input
+                  type="email"
+                  id="admin-email"
+                  required
+                  autoFocus
+                  placeholder="admin@alyaqeen.com"
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  className="w-full bg-white border border-[#D5E1D8] rounded-xl px-4 py-2.5 font-sans text-sm text-[#27272A] focus:outline-none focus:border-[#064E3B] transition-colors focus:ring-2 focus:ring-[#064E3B]/10"
+                />
+              </div>
+
+              <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-[#064E3B]/85 mb-1.5" htmlFor="admin-pass">
-                  Passcode
+                  Password
                 </label>
                 <input
                   type="password"
                   id="admin-pass"
                   required
-                  autoFocus
                   placeholder="••••••••"
-                  value={adminPasscode}
-                  onChange={(e) => setAdminPasscode(e.target.value)}
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
                   className="w-full bg-white border border-[#D5E1D8] rounded-xl px-4 py-2.5 font-sans text-sm text-[#27272A] focus:outline-none focus:border-[#064E3B] transition-colors focus:ring-2 focus:ring-[#064E3B]/10"
                 />
               </div>
@@ -1758,9 +1833,10 @@ export default function App() {
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center h-10 px-5 bg-[#064E3B] hover:bg-[#022c22] text-white font-bold text-xs rounded-xl shadow-md transition-all duration-200 active:scale-95 cursor-pointer leading-none"
+                  disabled={adminLoading}
+                  className="inline-flex items-center justify-center h-10 px-5 bg-[#064E3B] hover:bg-[#022c22] text-white font-bold text-xs rounded-xl shadow-md transition-all duration-200 active:scale-95 cursor-pointer leading-none disabled:opacity-50"
                 >
-                  Verify
+                  {adminLoading ? "Verifying..." : "Verify"}
                 </button>
               </div>
             </form>
@@ -1859,9 +1935,9 @@ export default function App() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setIsAdmin(false);
-                  localStorage.removeItem("alyaqeen_admin_authorized");
+                onClick={async () => {
+                  if (supabase) await supabase.auth.signOut();
+                  // Session listener handles setIsAdmin
                   showToast("Admin mode deactivated.", "success");
                   setIsLogoutConfirmOpen(false);
                 }}

@@ -33,7 +33,7 @@ export const FooterSocials: React.FC = () => {
     stiffness: 380,
     damping: 22,
     mass: 0.6,
-  };
+  } as const;
 
   return (
     <div className="flex flex-col items-center justify-center gap-2 mt-4 select-none unique-socials-section">
