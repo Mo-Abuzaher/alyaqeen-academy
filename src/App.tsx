@@ -705,6 +705,14 @@ export default function App() {
     }, 100);
   };
 
+  // Deep-link support: honor section hashes on initial load (e.g. landing on /#contact from the 404 page)
+  useEffect(() => {
+    const hash = window.location.hash.replace("#", "");
+    if (!hash || hash === "home") return;
+    handleHashNavigation(hash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   return (
     <div className="min-h-screen bg-[#F9FBF9] text-[#27272A] font-sans selection:bg-[#D4AF37] selection:text-white">
